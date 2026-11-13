@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch monitor input selection for Hyprland
+Documentation=https://github.com/major/hyprland-input-watch
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=HYPRLAND_INSTANCE_SIGNATURE
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/hyprland-input-watch run
+TimeoutStopSec=60

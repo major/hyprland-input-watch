@@ -1,0 +1,15 @@
+# Replace both serials and input codes with values observed on your monitors.
+# Input codes are examples, not universal values. Never guess a USB-C code.
+monitor_serial = "REPLACE_TARGET_SERIAL"
+fallback_serial = "REPLACE_FALLBACK_SERIAL"
+active_input = 0x0f
+away_inputs = [0x11]
+interval_seconds = 3.0
+confirmations = 2
+
+# Match your desired Hyprland monitor rule rather than copying this blindly.
+[restore]
+mode = "preferred"
+position = "auto-left"
+scale = 1.0
+transform = 0

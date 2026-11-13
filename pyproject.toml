@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hyprland-input-watch"
+version = "0.1.0"
+description = "Move Hyprland workspaces off monitors displaying another input"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Major Hayden" }]
+keywords = ["hyprland", "wayland", "ddcutil", "monitor", "kvm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+dependencies = []
+
+[project.scripts]
+hyprland-input-watch = "hyprland_input_watch.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/major/hyprland-input-watch"
+Repository = "https://github.com/major/hyprland-input-watch"
+Issues = "https://github.com/major/hyprland-input-watch/issues"
+
+[dependency-groups]
+dev = ["ruff>=0.17.4,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hyprland_input_watch"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM"]
