@@ -135,6 +135,7 @@ class WatcherTests(unittest.TestCase):
             "VCP 60 ERR\n",
             subprocess.TimeoutExpired("ddcutil", 8),
             subprocess.CalledProcessError(1, "ddcutil"),
+            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid output"),
         )
         for failure in failures:
             with self.subTest(failure=failure):
@@ -246,7 +247,29 @@ class WatcherTests(unittest.TestCase):
         self.watcher.close()
 
         self.assertFalse(keep_running)
+        self.assertTrue(self.watcher.stop.is_set())
         self.assertFalse(self.watcher.owned)
+        self.assertEqual(len(self.desktop.actions), 1)
+
+    def test_reenable_during_verification_prevents_later_disables(self):
+        """Honor an external enable even before a disable can be verified."""
+
+        def reenable(args, **kwargs):
+            """Apply the rule, then simulate an immediate manual re-enable."""
+            result = self.desktop.run(args, **kwargs)
+            if args[:2] == ["hyprctl", "eval"]:
+                self.desktop.monitors[0]["disabled"] = False
+            return result
+
+        with patch.object(watch.subprocess, "run", side_effect=reenable):
+            self.switch_away()
+        self.watcher.step()
+        self.watcher.step()
+        self.watcher.close()
+
+        self.assertTrue(self.watcher.stop.is_set())
+        self.assertFalse(self.watcher.owned)
+        self.assertFalse(self.desktop.monitors[0]["disabled"])
         self.assertEqual(len(self.desktop.actions), 1)
 
     def test_disable_applied_despite_timeout_is_still_owned(self):
@@ -298,6 +321,7 @@ class WatcherTests(unittest.TestCase):
                 self.desktop.source = subprocess.TimeoutExpired("ddcutil", 8)
 
                 self.assertFalse(self.watcher.step())
+                self.assertTrue(self.watcher.stop.is_set())
                 self.assertFalse(self.watcher.owned)
 
     def test_verification_uses_one_deadline(self):
@@ -369,6 +393,8 @@ class WatcherTests(unittest.TestCase):
             "Display 1\n Monitor: ABC:MODEL:LEFT123\n\nDisplay 2\n Monitor: broken\n",
             "Display 1\n Monitor: ABC:MODEL:LEFT123\n unexpected garbage\n",
             "Display 1\n Monitor: ABC:MODEL:LEFT123\n Display 1\n Monitor: A:B:OTHER\n",
+            "Display 1\n Monitor: ABC:MODEL:PART:LEFT123\n\n"
+            "Display 2\n Monitor: DEF:MODEL:LEFT123\n",
             subprocess.TimeoutExpired("ddcutil", 8),
         )
         for detection in failures:

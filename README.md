@@ -16,6 +16,8 @@ The initial public version is 0.1.0. This does not promise to restore workspaces
 
 The Dell U2723QE is known to have been tested. Other monitors may not meet these requirements. Run as your normal user, not root.
 
+Discovery requires unambiguous `ddcutil detect --terse` records. A colon inside a detected model name or serial cannot be distinguished from that format's separators, so the watcher rejects that discovery result rather than risking the wrong display.
+
 ## Install and configure 🔧
 
 There is no PyPI release. Install from the Git URL with either tool:
@@ -99,7 +101,7 @@ hl.on("hyprland.start", function()
 end)
 ```
 
-The unit has no automatic restart: a manual override must be respected, and a crash loses ownership of the output.
+The unit assumes your session manager starts and stops `graphical-session.target`. Otherwise, arrange to stop the service when Hyprland exits. It has no automatic restart: a manual override must be respected, and a crash loses ownership of the output.
 
 For either integration:
 
@@ -111,6 +113,7 @@ journalctl --user -u hyprland-input-watch.service -b
 ## Safety and recovery 🛡️
 
 - Before every disable, the specifically configured fallback must be awake and enabled. Missing or ambiguous serials do not authorize a change.
+- Fallback readiness uses Hyprland's enabled and DPMS state. It does not verify which input the fallback monitor is displaying; only the configured target's input is watched.
 - Before every input query in `probe`, `check`, or `run`, a bounded `ddcutil detect --terse` checks for an exact, unique serial match. Unknown or malformed detection results fail closed; `ddcutil --sn` alone can silently select the first match.
 - Two matching polls are required by default. Failed or timed-out input and detection reads, and unknown inputs, do not trigger changes. A timed-out Hyprland IPC mutation may still apply, so ownership is retained. Subprocess calls are bounded to 8 seconds, with up to 2 seconds total for verification; allow 60 seconds for service stop.
 - A singleton lock is held through cleanup. The watcher restores only an output it owns. If you or a configuration reload re-enable an output it disabled, the watcher stops rather than fighting your changes.

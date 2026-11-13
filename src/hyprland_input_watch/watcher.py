@@ -18,7 +18,7 @@ def command(args, timeout=8):
         result = subprocess.run(
             args, check=True, capture_output=True, text=True, timeout=timeout
         )
-    except (OSError, subprocess.SubprocessError) as error:
+    except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         raise RuntimeError(f"{args[0]} failed: {error}") from error
     return result.stdout.strip()
 
@@ -78,10 +78,10 @@ def read_input(serial):
         elif line.startswith("Monitor"):
             if not in_display or record is not None or not line.startswith("Monitor:"):
                 raise RuntimeError("ddcutil detect returned malformed monitor records")
-            fields = line[len("Monitor:") :].strip().split(":", 2)
+            fields = line[len("Monitor:") :].strip().split(":")
             if len(fields) != 3 or any(not field.strip() for field in fields):
                 raise RuntimeError(
-                    "ddcutil detect returned an incomplete monitor record"
+                    "ddcutil detect returned an incomplete or ambiguous monitor record"
                 )
             record = fields[2].strip()
         elif (
@@ -128,6 +128,13 @@ class Watcher:
         if message != self.last_error:
             LOG.warning("%s", message)
             self.last_error = message
+
+    def _stop_after_enable(self, message):
+        """Stop without restoring after an enabled target has been observed."""
+        self.owned = False
+        self.verified = False
+        self.stop.set()
+        LOG.info("%s", message)
 
     def change(self, disabled):
         """Recheck identity and safety immediately before a verified mutation."""
@@ -203,13 +210,16 @@ class Watcher:
             and observed is not None
             and observed["disabled"] is False
         ):
-            self.owned = False
-            self.verified = False
+            self._stop_after_enable(
+                "target is enabled after a disable attempt; stopping"
+            )
         self.report(error_message or "monitor state change could not be confirmed")
         return False
 
     def step(self):
         """Process one observation, stopping rather than fighting an override."""
+        if self.stop.is_set():
+            return False
         try:
             target = find_monitor(read_monitors(), self.config.monitor_serial)
             if self.owned and not self.verified and target is not None:
@@ -219,7 +229,7 @@ class Watcher:
                 self.owned = target["disabled"]
                 if not self.owned:
                     self.candidate, self.samples = None, 0
-                    LOG.info(
+                    self._stop_after_enable(
                         "target output is enabled after an uncertain disable; stopping"
                     )
                     return False
@@ -230,9 +240,9 @@ class Watcher:
                 and target is not None
                 and target["disabled"] is False
             ):
-                self.owned = False
-                self.verified = False
-                LOG.info("target output was re-enabled externally; stopping")
+                self._stop_after_enable(
+                    "target output was re-enabled externally; stopping"
+                )
                 return False
             source = read_input(self.config.monitor_serial)
             if (
